@@ -1,9 +1,27 @@
 pipeline {
-  agent any
+  agent none
+  options {
+    skipDefaultCheckout()
+  }
   stages {
-    stage('Build backend') {
+    stage('Checkout') {
+      agent any
       steps {
-        echo 'Building backend...'
+        checkout scm
+        stash(name: 'ws', includes: '**')
+      }
+    }
+    stage('Build backend') {
+      agent {
+        docker {
+          image 'maven:3-alpine'
+          args '-v $HOME/.m2:/root/.m2'
+        }
+      }
+      steps {
+        unstash 'ws'
+        sh './mvnw -B -DskipTests=true clean compile package'
+        stash name: 'war', includes: 'target/**/*.war'
       }
     }
     stage('Test backend') {
@@ -12,6 +30,7 @@ pipeline {
       }
     }
     stage('More tests') {
+      agent any
       steps {
         echo 'Running more tests'
       }
